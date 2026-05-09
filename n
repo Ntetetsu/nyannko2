@@ -1,538 +1,439 @@
-<!-- Tailwind CSSの読み込み -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>九九ディフェンダー</title>
 <script src="https://cdn.tailwindcss.com"></script>
-
-<!-- ゲームのスタイル -->
 <style>
-    .game-container {
-        font-family: 'Inter', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
-        touch-action: none;
-        user-select: none;
-    }
-    .flash-correct { animation: flashGreen 0.3s ease-out; }
-    .flash-wrong { animation: flashRed 0.3s ease-out; }
-    @keyframes flashGreen {
-        0% { background-color: rgba(16, 185, 129, 0.5); }
-        100% { background-color: transparent; }
-    }
-    @keyframes flashRed {
-        0% { background-color: rgba(239, 68, 68, 0.5); }
-        100% { background-color: transparent; }
-    }
-    .frozen {
-        opacity: 0.5;
-        pointer-events: none;
-        filter: grayscale(100%);
-        transition: all 0.2s;
-    }
-    .level-btn {
-        width: 100%;
-        padding: 10px;
-        font-size: 1rem;
-        font-weight: bold;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        box-shadow: 0 4px 0 rgba(0,0,0,0.2);
-        transition: transform 0.1s, box-shadow 0.1s;
-    }
-    .level-btn:active {
-        transform: translateY(4px);
-        box-shadow: 0 0 0 rgba(0,0,0,0.2);
-    }
-    .summon-btn { transition: transform 0.1s, filter 0.1s; }
-    .summon-btn:active:not(:disabled) { transform: scale(0.95); }
-    .summon-btn:disabled {
-        filter: grayscale(100%);
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-    #game-canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 60%, #8B4513 60%, #654321 100%);
-    }
-    .overlay {
-        background-color: rgba(0, 0, 0, 0.75);
-        backdrop-filter: blur(4px);
-    }
+body{font-family:'Inter','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;touch-action:none;user-select:none;overflow:hidden}
+.flash-correct{animation:flashGreen 0.3s ease-out}
+.flash-wrong{animation:flashRed 0.3s ease-out}
+@keyframes flashGreen{0%{background-color:rgba(16,185,129,0.5)}100%{background-color:transparent}}
+@keyframes flashRed{0%{background-color:rgba(239,68,68,0.5)}100%{background-color:transparent}}
+.frozen{opacity:0.5;pointer-events:none;filter:grayscale(100%);transition:all 0.2s}
+.level-btn{width:100%;padding:10px;font-size:1rem;font-weight:bold;color:white;border:none;border-radius:8px;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,0.2);transition:transform 0.1s,box-shadow 0.1s}
+.level-btn:active{transform:translateY(4px);box-shadow:0 0 0 rgba(0,0,0,0.2)}
+.summon-btn{transition:transform 0.1s,filter 0.1s}
+.summon-btn:active:not(:disabled){transform:scale(0.95)}
+.summon-btn:disabled{filter:grayscale(100%);opacity:0.6;cursor:not-allowed}
+#game-canvas{display:block;width:100%;height:100%}
+.overlay{background-color:rgba(0,0,0,0.75);backdrop-filter:blur(4px)}
+.dan-btn{padding:6px 4px;font-size:0.8rem;font-weight:bold;color:white;border:2px solid transparent;border-radius:6px;cursor:pointer;background-color:#4b5563;transition:all 0.1s}
+.dan-btn.selected{background-color:#f59e0b;border-color:#fbbf24;color:#1f2937}
+.dan-btn:active{transform:scale(0.95)}
 </style>
-
-<!-- ゲームの本体部分 -->
-<div class="game-container bg-gray-900 w-full h-[700px] flex flex-col relative overflow-hidden mx-auto max-w-4xl rounded-xl shadow-2xl">
-    <div class="relative flex-1 w-full overflow-hidden">
-        <canvas id="game-canvas"></canvas>
-
-        <!-- メッセージオーバーレイ (メニュー) -->
-        <div id="message-overlay" class="absolute inset-0 overlay flex flex-col items-center justify-center z-50 overflow-y-auto">
-            <div id="start-menu" class="w-full max-w-sm px-4 py-4 flex flex-col items-center my-auto">
-                <h1 class="text-2xl sm:text-3xl font-extrabold mb-4 text-center text-white drop-shadow-lg leading-tight">九九ディフェンダー</h1>
-                <div class="w-full bg-white/10 p-3 rounded-xl backdrop-blur-sm shadow-xl flex flex-col gap-2">
-                    <button class="level-btn bg-green-500 shadow-green-700" onclick="startGame(1)">レベル 1 (やさしい)</button>
-                    <button class="level-btn bg-blue-500 shadow-blue-700" onclick="startGame(2)">レベル 2 (ふつう)</button>
-                    <button class="level-btn bg-yellow-500 shadow-yellow-700" onclick="startGame(3)">レベル 3 (むずかしい)</button>
-                    <button class="level-btn bg-orange-500 shadow-orange-700" onclick="startGame(4)">レベル 4 (おに)</button>
-                    <button class="level-btn bg-red-500 shadow-red-700" onclick="startGame(5)">レベル 5 (げきむず！)</button>
-                </div>
-            </div>
-
-            <!-- リザルトメニュー -->
-            <div id="result-menu" class="hidden w-full max-w-sm px-6 flex flex-col items-center my-auto">
-                <h2 id="result-title" class="text-4xl font-bold mb-2 text-center text-white drop-shadow-lg">クリア！</h2>
-                <p id="result-desc" class="text-xl mb-6 text-white text-center">敵の拠点を破壊した！</p>
-                <button class="level-btn bg-blue-500 shadow-blue-700 text-xl py-3" onclick="resetToMenu()">タイトルに戻る</button>
-            </div>
-        </div>
-        
-        <!-- レベル・状態表示 -->
-        <div class="absolute top-2 left-2 text-white font-bold text-lg drop-shadow-md pointer-events-none" id="status-display">
-            <span id="current-level-display" class="bg-black/50 px-3 py-1 rounded-full">メニュー</span>
-        </div>
+</head>
+<body class="bg-gray-900 h-screen w-screen flex flex-col">
+<div class="relative flex-1 w-full overflow-hidden">
+<canvas id="game-canvas"></canvas>
+<div id="message-overlay" class="absolute inset-0 overlay flex flex-col items-center justify-center z-50 overflow-y-auto">
+  <div id="start-menu" class="w-full max-w-sm px-4 py-4 flex flex-col items-center my-auto">
+    <h1 class="text-2xl sm:text-3xl font-extrabold mb-3 text-center text-white drop-shadow-lg leading-tight">九九ディフェンダー</h1>
+    <div class="w-full bg-white/10 p-3 rounded-xl backdrop-blur-sm shadow-xl mb-3">
+      <p class="text-white font-bold text-sm mb-2 text-center">📚 練習する段を選ぼう（「全部」でランダム）</p>
+      <div class="grid grid-cols-5 gap-1 mb-1">
+        <button class="dan-btn selected" onclick="selectDan(0)">全部</button>
+        <button class="dan-btn" onclick="selectDan(1)">1の段</button>
+        <button class="dan-btn" onclick="selectDan(2)">2の段</button>
+        <button class="dan-btn" onclick="selectDan(3)">3の段</button>
+        <button class="dan-btn" onclick="selectDan(4)">4の段</button>
+      </div>
+      <div class="grid grid-cols-5 gap-1">
+        <button class="dan-btn" onclick="selectDan(5)">5の段</button>
+        <button class="dan-btn" onclick="selectDan(6)">6の段</button>
+        <button class="dan-btn" onclick="selectDan(7)">7の段</button>
+        <button class="dan-btn" onclick="selectDan(8)">8の段</button>
+        <button class="dan-btn" onclick="selectDan(9)">9の段</button>
+      </div>
     </div>
-
-    <!-- 下部UI -->
-    <div class="h-64 sm:h-72 bg-gray-100 border-t-4 border-gray-800 flex flex-col shadow-[0_-4px_10px_rgba(0,0,0,0.3)] z-40 shrink-0">
-        <div id="math-area" class="flex-1 flex flex-col items-center justify-center p-2 transition-colors duration-200">
-            <div class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center w-full">
-                <span id="question-text">? × ? = </span>
-                <span class="ml-2 w-16 h-12 bg-white border-2 border-gray-300 rounded-lg inline-block align-middle text-center leading-10 shadow-inner">?</span>
-            </div>
-            <div id="answers" class="flex gap-3 w-full max-w-md px-2">
-                <button class="flex-1 bg-white border-4 border-blue-400 rounded-xl text-2xl sm:text-3xl font-bold py-3 shadow-md active:bg-blue-100 transition-colors" onclick="checkAnswer(0)" id="ans-btn-0">-</button>
-                <button class="flex-1 bg-white border-4 border-blue-400 rounded-xl text-2xl sm:text-3xl font-bold py-3 shadow-md active:bg-blue-100 transition-colors" onclick="checkAnswer(1)" id="ans-btn-1">-</button>
-                <button class="flex-1 bg-white border-4 border-blue-400 rounded-xl text-2xl sm:text-3xl font-bold py-3 shadow-md active:bg-blue-100 transition-colors" onclick="checkAnswer(2)" id="ans-btn-2">-</button>
-            </div>
-        </div>
-
-        <div class="w-full bg-gray-800 p-2 flex items-center gap-2">
-            <span class="text-yellow-400 font-bold text-sm whitespace-nowrap">⚡ エネルギー</span>
-            <div class="flex-1 h-6 bg-gray-900 border-2 border-gray-600 rounded-full overflow-hidden relative">
-                <div id="energy-bar" class="h-full bg-gradient-to-r from-yellow-400 to-yellow-200 w-0 transition-all duration-200"></div>
-                <div id="energy-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">0 / 100</div>
-            </div>
-        </div>
-
-        <div class="bg-gray-300 p-2 sm:p-3 flex gap-2 sm:gap-4 justify-center">
-            <button id="summon-1" class="summon-btn flex-1 max-w-[120px] bg-white border-b-4 border-gray-400 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden" onclick="spawnAlly('dog')">
-                <div class="text-3xl mb-1">🐶</div>
-                <div class="text-xs font-bold bg-gray-200 px-2 rounded-full mb-1">イヌ</div>
-                <div class="text-sm font-bold text-blue-600">⚡ 3</div>
-            </button>
-            <button id="summon-2" class="summon-btn flex-1 max-w-[120px] bg-white border-b-4 border-gray-400 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden" onclick="spawnAlly('gorilla')">
-                <div class="text-3xl mb-1">🦍</div>
-                <div class="text-xs font-bold bg-gray-200 px-2 rounded-full mb-1">ゴリラ</div>
-                <div class="text-sm font-bold text-blue-600">⚡ 10</div>
-            </button>
-            <button id="summon-3" class="summon-btn flex-1 max-w-[120px] bg-white border-b-4 border-gray-400 rounded-xl p-2 flex flex-col items-center justify-center relative overflow-hidden" onclick="spawnAlly('dragon')">
-                <div class="text-3xl mb-1">🐉</div>
-                <div class="text-xs font-bold bg-gray-200 px-2 rounded-full mb-1">ドラゴン</div>
-                <div class="text-sm font-bold text-blue-600">⚡ 30</div>
-            </button>
-        </div>
+    <div class="w-full bg-white/10 p-3 rounded-xl backdrop-blur-sm shadow-xl flex flex-col gap-2">
+      <button class="level-btn bg-green-500 shadow-green-700" onclick="startGame(1)">レベル 1 (やさしい)</button>
+      <button class="level-btn bg-blue-500 shadow-blue-700" onclick="startGame(2)">レベル 2 (ふつう)</button>
+      <button class="level-btn bg-yellow-500 shadow-yellow-700" onclick="startGame(3)">レベル 3 (むずかしい)</button>
+      <button class="level-btn bg-orange-500 shadow-orange-700" onclick="startGame(4)">レベル 4 (おに)</button>
+      <button class="level-btn bg-red-500 shadow-red-700" onclick="startGame(5)">レベル 5 (げきむず！)</button>
     </div>
+  </div>
+  <div id="result-menu" class="hidden w-full max-w-sm px-6 flex flex-col items-center my-auto">
+    <h2 id="result-title" class="text-4xl font-bold mb-2 text-center text-white drop-shadow-lg">クリア！</h2>
+    <p id="result-desc" class="text-xl mb-4 text-white text-center">敵の拠点を破壊した！</p>
+    <div class="w-full bg-white/20 rounded-xl p-4 mb-4 text-white text-center">
+      <p class="text-lg font-bold mb-2">📊 今回の結果</p>
+      <p id="log-correct" class="text-green-300 font-bold text-lg">✅ 正解: 0問</p>
+      <p id="log-wrong" class="text-red-300 font-bold text-lg">❌ 不正解: 0問</p>
+      <p id="log-accuracy" class="text-yellow-300 font-bold text-xl mt-1">🎯 正答率: 0%</p>
+    </div>
+    <button class="level-btn bg-blue-500 shadow-blue-700 text-xl py-3" onclick="resetToMenu()">タイトルに戻る</button>
+  </div>
+</div>
+<div class="absolute top-2 left-2 text-white font-bold text-lg drop-shadow-md pointer-events-none">
+  <span id="current-level-display" class="bg-black/50 px-3 py-1 rounded-full">メニュー</span>
+</div>
+<div id="correct-banner" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white font-bold text-2xl px-6 py-3 rounded-xl shadow-2xl z-30 pointer-events-none text-center whitespace-nowrap"></div>
 </div>
 
-<!-- ゲームのロジック (JavaScript) -->
+<div class="h-64 sm:h-72 bg-gray-100 border-t-4 border-gray-800 flex flex-col shadow-[0_-4px_10px_rgba(0,0,0,0.3)] z-40 shrink-0">
+  <div id="math-area" class="flex-1 flex flex-col items-center justify-center p-2 transition-colors duration-200">
+    <div class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center w-full">
+      <span id="question-text">? × ? = </span>
+      <span class="ml-2 w-16 h-12 bg-white border-2 border-gray-300 rounded-lg inline-block align-middle text-center leading-10 shadow-inner">?</span>
+    </div>
+    <div id="answers" class="flex gap-3 w-full max-w-md px-2">
+      <button class="flex-1 bg-white border-4 border-blue-400 rounded-xl text-2xl sm:text-3xl font-bold py-3 shadow-md active:bg-blue-100 transition-colors" onclick="checkAnswer(0)" id="ans-btn-0">-</button>
+      <button class="flex-1 bg-white border-4 border-blue-400 rounded-xl text-2xl sm:text-3xl font-bold py-3 shadow-md active:bg-blue-100 transition-colors" onclick="checkAnswer(1)" id="ans-btn-1">-</button>
+      <button class="flex-1 bg-white border-4 border-blue-400 rounded-xl text-2xl sm:text-3xl font-bold py-3 shadow-md active:bg-blue-100 transition-colors" onclick="checkAnswer(2)" id="ans-btn-2">-</button>
+    </div>
+  </div>
+  <div class="w-full bg-gray-800 p-2 flex items-center gap-2">
+    <span class="text-yellow-400 font-bold text-sm whitespace-nowrap">⚡ エネルギー</span>
+    <div class="flex-1 h-6 bg-gray-900 border-2 border-gray-600 rounded-full overflow-hidden relative">
+      <div id="energy-bar" class="h-full bg-gradient-to-r from-yellow-400 to-yellow-200 w-0 transition-all duration-200"></div>
+      <div id="energy-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">0 / 60</div>
+    </div>
+  </div>
+  <div class="bg-gray-300 p-2 sm:p-3 flex gap-2 sm:gap-4 justify-center">
+    <button id="summon-1" class="summon-btn flex-1 max-w-[120px] bg-white border-b-4 border-gray-400 rounded-xl p-2 flex flex-col items-center justify-center" onclick="spawnAlly('dog')">
+      <div class="text-3xl mb-1">🐶</div>
+      <div class="text-xs font-bold bg-gray-200 px-2 rounded-full mb-1">イヌ</div>
+      <div class="text-sm font-bold text-blue-600">⚡ 3</div>
+    </button>
+    <button id="summon-2" class="summon-btn flex-1 max-w-[120px] bg-white border-b-4 border-gray-400 rounded-xl p-2 flex flex-col items-center justify-center" onclick="spawnAlly('gorilla')">
+      <div class="text-3xl mb-1">🦍</div>
+      <div class="text-xs font-bold bg-gray-200 px-2 rounded-full mb-1">ゴリラ</div>
+      <div class="text-sm font-bold text-blue-600">⚡ 10</div>
+    </button>
+    <button id="summon-3" class="summon-btn flex-1 max-w-[120px] bg-white border-b-4 border-gray-400 rounded-xl p-2 flex flex-col items-center justify-center" onclick="spawnAlly('dragon')">
+      <div class="text-3xl mb-1">🐉</div>
+      <div class="text-xs font-bold bg-gray-200 px-2 rounded-full mb-1">ドラゴン</div>
+      <div class="text-sm font-bold text-blue-600">⚡ 30</div>
+    </button>
+  </div>
+</div>
+
 <script>
-    const canvas = document.getElementById('game-canvas');
-    const ctx = canvas.getContext('2d');
-    let canvasWidth, canvasHeight;
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let canvasWidth, canvasHeight;
+function resizeCanvas() { canvasWidth = canvas.clientWidth; canvasHeight = canvas.clientHeight; canvas.width = canvasWidth; canvas.height = canvasHeight; }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
-    function resizeCanvas() {
-        // コンテナのサイズに合わせてキャンバスをリサイズ
-        canvasWidth = canvas.parentElement.clientWidth;
-        canvasHeight = canvas.parentElement.clientHeight;
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+let gameState = 'MENU';
+let animationId = null;
+let lastTime = 0;
+let timeElapsed = 0;
+let currentLevel = 1;
+let isFrozen = false;
+let freezeTimer = null;
+let bannerTimer = null;
+let selectedDan = 0;
+let energy = 0;
+let maxEnergy = 60;
+let correctCount = 0;
+let wrongCount = 0;
+let currentCorrectAnswer = 0;
+let currentCorrectIndex = 0;
+let entities = [];
+let particles = [];
+let damageTexts = [];
+
+const bases = {
+  player: { x: 0, y: 0, hp: 1000, maxHp: 1000, width: 80, height: 100, isPlayer: true },
+  enemy:  { x: 0, y: 0, hp: 1000, maxHp: 1000, width: 80, height: 100, isPlayer: false }
+};
+
+const allyTypes = {
+  'dog':     { emoji: '🐶', cost: 3,  hp: 60,  maxHp: 60,  atk: 8,  speed: 60, range: 40, cd: 0.8, size: 30 },
+  'gorilla': { emoji: '🦍', cost: 10, hp: 250, maxHp: 250, atk: 25, speed: 40, range: 50, cd: 1.5, size: 50 },
+  'dragon':  { emoji: '🐉', cost: 30, hp: 600, maxHp: 600, atk: 80, speed: 25, range: 70, cd: 2.0, size: 70 }
+};
+
+const enemyTypes = [
+  { emoji: '💧', hp: 30,  maxHp: 30,  atk: 5,  speed: 30, range: 35, cd: 1.2, size: 30 },
+  { emoji: '👺', hp: 120, maxHp: 120, atk: 15, speed: 25, range: 40, cd: 1.5, size: 45 },
+  { emoji: '👿', hp: 350, maxHp: 350, atk: 40, speed: 20, range: 60, cd: 2.0, size: 60 }
+];
+
+let enemySpawnTimer = 0;
+
+function selectDan(dan) {
+  selectedDan = dan;
+  document.querySelectorAll('.dan-btn').forEach((btn, i) => { btn.classList.toggle('selected', i === dan); });
+}
+window.selectDan = selectDan;
+
+function startGame(level) {
+  currentLevel = level; gameState = 'PLAYING'; timeElapsed = 0;
+  isFrozen = false; correctCount = 0; wrongCount = 0;
+  if (freezeTimer) clearTimeout(freezeTimer);
+  if (bannerTimer) clearTimeout(bannerTimer);
+  document.getElementById('answers').classList.remove('frozen');
+  document.getElementById('correct-banner').classList.add('hidden');
+  document.getElementById('message-overlay').classList.add('hidden');
+  document.getElementById('start-menu').classList.add('hidden');
+  document.getElementById('result-menu').classList.add('hidden');
+  document.getElementById('current-level-display').innerText = 'レベル ' + level;
+  const maxEnergyByLevel = [60, 80, 100, 120, 150];
+  maxEnergy = maxEnergyByLevel[level - 1];
+  const enemyHpByLevel = [400, 800, 1500, 2000, 3000];
+  bases.enemy.maxHp = enemyHpByLevel[level - 1];
+  bases.enemy.hp = bases.enemy.maxHp;
+  bases.player.maxHp = 1000; bases.player.hp = bases.player.maxHp;
+  entities = []; particles = []; damageTexts = [];
+  energy = 0; enemySpawnTimer = 2.0;
+  updateUI(); generateMathQuestion();
+  if (!animationId) { lastTime = performance.now(); animationId = requestAnimationFrame(gameLoop); }
+}
+window.startGame = startGame;
+
+function resetToMenu() {
+  gameState = 'MENU';
+  document.getElementById('message-overlay').classList.remove('hidden');
+  document.getElementById('start-menu').classList.remove('hidden');
+  document.getElementById('result-menu').classList.add('hidden');
+  document.getElementById('current-level-display').innerText = 'メニュー';
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+}
+window.resetToMenu = resetToMenu;
+
+function endGame(isWin) {
+  gameState = isWin ? 'CLEAR' : 'GAMEOVER';
+  document.getElementById('message-overlay').classList.remove('hidden');
+  document.getElementById('result-menu').classList.remove('hidden');
+  document.getElementById('result-title').innerText = isWin ? '🎉 クリア！ 🎉' : '💀 ゲームオーバー 💀';
+  document.getElementById('result-title').className = isWin ? 'text-4xl font-bold mb-2 text-center text-yellow-400 drop-shadow-lg' : 'text-4xl font-bold mb-2 text-center text-red-500 drop-shadow-lg';
+  document.getElementById('result-desc').innerText = isWin ? 'レベル ' + currentLevel + ' の拠点を破壊した！' : '自分の拠点が破壊されてしまった...';
+  const total = correctCount + wrongCount;
+  const accuracy = total > 0 ? Math.round(correctCount / total * 100) : 0;
+  document.getElementById('log-correct').innerText = '✅ 正解: ' + correctCount + '問';
+  document.getElementById('log-wrong').innerText = '❌ 不正解: ' + wrongCount + '問';
+  document.getElementById('log-accuracy').innerText = '🎯 正答率: ' + accuracy + '%';
+}
+
+function generateMathQuestion() {
+  const rangeByLevel = [5, 7, 9, 9, 9];
+  const range = rangeByLevel[currentLevel - 1];
+  let n1, n2;
+  if (selectedDan === 0) {
+    n1 = Math.floor(Math.random() * range) + 1;
+    n2 = Math.floor(Math.random() * range) + 1;
+  } else {
+    n1 = selectedDan;
+    n2 = Math.floor(Math.random() * range) + 1;
+    if (Math.random() > 0.5) { let t = n1; n1 = n2; n2 = t; }
+  }
+  currentCorrectAnswer = n1 * n2;
+  document.getElementById('question-text').innerText = n1 + ' × ' + n2 + ' = ';
+  const answers = [currentCorrectAnswer];
+  while (answers.length < 3) {
+    let wrong;
+    if (Math.random() > 0.5) { wrong = currentCorrectAnswer + (Math.floor(Math.random() * 5) + 1) * (Math.random() > 0.5 ? 1 : -1); }
+    else { wrong = (Math.floor(Math.random() * 9) + 1) * (Math.floor(Math.random() * 9) + 1); }
+    if (wrong > 0 && !answers.includes(wrong)) answers.push(wrong);
+  }
+  answers.sort(() => Math.random() - 0.5);
+  currentCorrectIndex = answers.indexOf(currentCorrectAnswer);
+  for (let i = 0; i < 3; i++) document.getElementById('ans-btn-' + i).innerText = answers[i];
+}
+
+function showCorrectAnswerBanner() {
+  const banner = document.getElementById('correct-banner');
+  banner.innerText = '❌ 正解は ' + currentCorrectAnswer + ' だよ！';
+  banner.classList.remove('hidden');
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { banner.classList.add('hidden'); }, 1800);
+}
+
+function checkAnswer(selectedIndex) {
+  if (gameState !== 'PLAYING' || isFrozen) return;
+  const mathArea = document.getElementById('math-area');
+  const answersDiv = document.getElementById('answers');
+  mathArea.classList.remove('flash-correct', 'flash-wrong');
+  void mathArea.offsetWidth;
+  if (selectedIndex === currentCorrectIndex) {
+    correctCount++;
+    mathArea.classList.add('flash-correct');
+    const gain = Math.max(3, currentLevel * 4);
+    addEnergy(gain);
+    generateMathQuestion();
+    createParticles(canvasWidth / 2, canvasHeight / 2, '#10b981', 15);
+  } else {
+    wrongCount++;
+    mathArea.classList.add('flash-wrong');
+    showCorrectAnswerBanner();
+    isFrozen = true;
+    answersDiv.classList.add('frozen');
+    if (freezeTimer) clearTimeout(freezeTimer);
+    freezeTimer = setTimeout(() => { isFrozen = false; answersDiv.classList.remove('frozen'); }, 2000);
+  }
+}
+window.checkAnswer = checkAnswer;
+
+function addEnergy(amount) { energy = Math.min(energy + amount, maxEnergy); updateUI(); }
+
+function spawnAlly(typeKey) {
+  if (gameState !== 'PLAYING') return;
+  const type = allyTypes[typeKey];
+  if (energy >= type.cost) {
+    energy -= type.cost; updateUI();
+    const groundY = canvasHeight * 0.6 + (Math.random() * 30 - 15);
+    entities.push({
+      isAlly: true, emoji: type.emoji,
+      x: bases.player.x - type.size / 2 - 10, y: groundY,
+      hp: type.hp, maxHp: type.maxHp, atk: type.atk,
+      speed: -type.speed,
+      range: type.range, maxCd: type.cd, cdTimer: 0, size: type.size, state: 'WALK', target: null
+    });
+    createParticles(bases.player.x - 40, groundY, '#3b82f6', 10);
+  }
+}
+window.spawnAlly = spawnAlly;
+
+function spawnEnemyLogic(deltaTime) {
+  enemySpawnTimer -= deltaTime;
+  if (enemySpawnTimer <= 0) {
+    const baseRates = [4.5, 3.5, 2.5, 2.0, 1.5];
+    let rate = baseRates[currentLevel - 1];
+    const timeScale = Math.floor(timeElapsed / 15) * 0.1;
+    rate = Math.max(0.8, rate - timeScale);
+    enemySpawnTimer = rate + (Math.random() * 0.4);
+    let typeId = 0;
+    const r = Math.random();
+    if (currentLevel === 2 && r > 0.7) typeId = 1;
+    if (currentLevel === 3) { if (r > 0.5) typeId = 1; if (r > 0.9) typeId = 2; }
+    if (currentLevel === 4) { if (r > 0.4) typeId = 1; if (r > 0.8) typeId = 2; }
+    if (currentLevel === 5) { if (r > 0.3) typeId = 1; if (r > 0.6) typeId = 2; }
+    const type = enemyTypes[typeId];
+    const statMult = 1 + (currentLevel - 1) * 0.1;
+    const groundY = canvasHeight * 0.6 + (Math.random() * 30 - 15);
+    entities.push({
+      isAlly: false, emoji: type.emoji,
+      x: bases.enemy.x + bases.enemy.width + type.size / 2 + 10, y: groundY,
+      hp: type.hp * statMult, maxHp: type.maxHp * statMult, atk: type.atk * statMult,
+      speed: type.speed,
+      range: type.range, maxCd: type.cd, cdTimer: 0,
+      size: type.size * (1 + (statMult - 1) * 0.5), state: 'WALK', target: null
+    });
+  }
+}
+
+function update(deltaTime) {
+  if (gameState !== 'PLAYING') return;
+  timeElapsed += deltaTime;
+  bases.player.x = canvasWidth - 100; bases.player.y = canvasHeight * 0.6 - 80;
+  bases.enemy.x = 20; bases.enemy.y = canvasHeight * 0.6 - 80;
+  spawnEnemyLogic(deltaTime);
+  entities.sort((a, b) => a.y - b.y);
+  entities.forEach(e => { e.state = 'WALK'; e.target = null; });
+  for (let i = 0; i < entities.length; i++) {
+    let e = entities[i];
+    if (e.hp <= 0) continue;
+    if (e.isAlly && e.x - e.range <= bases.enemy.x + bases.enemy.width) { e.state = 'ATTACK'; e.target = bases.enemy; }
+    else if (!e.isAlly && e.x + e.range >= bases.player.x) { e.state = 'ATTACK'; e.target = bases.player; }
+    for (let j = 0; j < entities.length; j++) {
+      let other = entities[j];
+      if (i === j || other.hp <= 0 || e.isAlly === other.isAlly) continue;
+      if (Math.abs(e.y - other.y) > 40) continue;
+      if (Math.abs(e.x - other.x) <= e.range) { e.state = 'ATTACK'; e.target = other; break; }
     }
-    window.addEventListener('resize', resizeCanvas);
-    
-    // 少し遅延させてサイズを正しく取得
-    setTimeout(resizeCanvas, 100);
-
-    let gameState = 'MENU';
-    let animationId;
-    let lastTime = 0;
-    let timeElapsed = 0;
-    let currentLevel = 1;
-    let isFrozen = false;
-    let freezeTimer = null;
-    let energy = 0;
-    const maxEnergy = 100;
-    let currentCorrectAnswer = 0;
-    let currentCorrectIndex = 0;
-    let entities = [];
-    let particles = [];
-    let damageTexts = [];
-
-    const bases = {
-        player: { x: 0, y: 0, hp: 1000, maxHp: 1000, width: 80, height: 100, isPlayer: true },
-        enemy: { x: 0, y: 0, hp: 1000, maxHp: 1000, width: 80, height: 100, isPlayer: false }
-    };
-
-    const allyTypes = {
-        'dog':     { emoji: '🐶', cost: 3,  hp: 60,  maxHp: 60,  atk: 8,  speed: 60, range: 40, cd: 0.8, size: 30 },
-        'gorilla': { emoji: '🦍', cost: 10, hp: 250, maxHp: 250, atk: 25, speed: 40, range: 50, cd: 1.5, size: 50 },
-        'dragon':  { emoji: '🐉', cost: 30, hp: 600, maxHp: 600, atk: 80, speed: 25, range: 70, cd: 2.0, size: 70 }
-    };
-
-    const enemyTypes = [
-        { emoji: '💧', hp: 30,  maxHp: 30,  atk: 5,  speed: -30, range: 35, cd: 1.2, size: 30 },
-        { emoji: '👺', hp: 120, maxHp: 120, atk: 15, speed: -25, range: 40, cd: 1.5, size: 45 },
-        { emoji: '👿', hp: 350, maxHp: 350, atk: 40, speed: -20, range: 60, cd: 2.0, size: 60 }
-    ];
-
-    let enemySpawnTimer = 0;
-
-    function startGame(level) {
-        currentLevel = level;
-        gameState = 'PLAYING';
-        timeElapsed = 0;
-        isFrozen = false;
-        if(freezeTimer) clearTimeout(freezeTimer);
-        document.getElementById('answers').classList.remove('frozen');
-        
-        document.getElementById('message-overlay').classList.add('hidden');
-        document.getElementById('start-menu').classList.add('hidden');
-        document.getElementById('result-menu').classList.add('hidden');
-        
-        document.getElementById('current-level-display').innerText = `レベル ${level}`;
-        
-        const enemyHpByLevel = [400, 800, 1500, 2000, 3000];
-        bases.enemy.maxHp = enemyHpByLevel[level - 1];
-        bases.enemy.hp = bases.enemy.maxHp;
-        bases.player.maxHp = 1000;
-        bases.player.hp = bases.player.maxHp;
-
-        entities = [];
-        particles = [];
-        damageTexts = [];
-        energy = 0;
-        enemySpawnTimer = 2.0;
-        updateUI();
-        generateMathQuestion();
-        
-        if (!animationId) {
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
-        }
+  }
+  for (let i = entities.length - 1; i >= 0; i--) {
+    let e = entities[i];
+    if (e.state === 'WALK') { e.x += e.speed * deltaTime; }
+    else if (e.state === 'ATTACK' && e.target) {
+      e.cdTimer -= deltaTime;
+      if (e.cdTimer <= 0) {
+        e.target.hp -= e.atk; e.cdTimer = e.maxCd;
+        const tx = e.target.x !== undefined ? e.target.x + 40 : e.x;
+        const ty = e.target.y !== undefined ? e.target.y : e.y;
+        createParticles(tx, ty, e.isAlly ? '#ef4444' : '#3b82f6', 5);
+        damageTexts.push({ x: tx, y: ty - 30, text: Math.floor(e.atk), life: 0.8, maxLife: 0.8 });
+        if (e.target === bases.enemy && bases.enemy.hp <= 0) endGame(true);
+        else if (e.target === bases.player && bases.player.hp <= 0) endGame(false);
+      }
     }
-    window.startGame = startGame;
+    if (e.hp <= 0) { createParticles(e.x, e.y, '#ffffff', 10); entities.splice(i, 1); }
+  }
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i]; p.x += p.vx * deltaTime; p.y += p.vy * deltaTime; p.life -= deltaTime;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = damageTexts.length - 1; i >= 0; i--) {
+    let d = damageTexts[i]; d.y -= 20 * deltaTime; d.life -= deltaTime;
+    if (d.life <= 0) damageTexts.splice(i, 1);
+  }
+}
 
-    function resetToMenu() {
-        gameState = 'MENU';
-        document.getElementById('message-overlay').classList.remove('hidden');
-        document.getElementById('start-menu').classList.remove('hidden');
-        document.getElementById('result-menu').classList.add('hidden');
-        document.getElementById('current-level-display').innerText = `メニュー`;
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+function draw() {
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+  ctx.fillStyle = '#87CEEB'; ctx.fillRect(0, 0, canvasWidth, canvasHeight * 0.6);
+  ctx.fillStyle = '#8B4513'; ctx.fillRect(0, canvasHeight * 0.6, canvasWidth, canvasHeight * 0.4);
+  ctx.fillStyle = '#654321'; ctx.fillRect(0, canvasHeight * 0.7, canvasWidth, canvasHeight * 0.3);
+  function drawBase(base, emoji) {
+    const barW = 60;
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(base.x + base.width / 2 - barW / 2, base.y - 15, barW, 8);
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(base.x + base.width / 2 - barW / 2, base.y - 15, barW * Math.max(0, base.hp / base.maxHp), 8);
+    ctx.font = '60px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(emoji, base.x + base.width / 2, base.y + base.height);
+  }
+  drawBase(bases.enemy, '🏰');
+  drawBase(bases.player, '🏯');
+  entities.forEach(e => {
+    ctx.font = e.size + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    if (e.state === 'WALK') {
+      const yOff = Math.sin(timeElapsed * 10) * 5;
+      ctx.fillText(e.emoji, e.x, e.y + yOff);
+    } else if (e.state === 'ATTACK') {
+      const dir = e.isAlly ? -1 : 1;
+      const atkAnim = Math.sin(e.cdTimer * 10) * 5;
+      ctx.fillText(e.emoji, e.x + (dir * atkAnim), e.y);
     }
-    window.resetToMenu = resetToMenu;
+    const barW = e.size;
+    ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - barW / 2, e.y - e.size - 10, barW, 5);
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(e.x - barW / 2, e.y - e.size - 10, barW * Math.max(0, e.hp / e.maxHp), 5);
+  });
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life / p.maxLife; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.globalAlpha = 1.0;
+  damageTexts.forEach(d => {
+    ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
+    ctx.fillStyle = '#ff0000'; ctx.font = 'bold 20px Arial';
+    ctx.strokeStyle = 'white'; ctx.lineWidth = 3;
+    ctx.strokeText(d.text, d.x, d.y); ctx.fillText(d.text, d.x, d.y);
+  });
+  ctx.globalAlpha = 1.0;
+}
 
-    function endGame(isWin) {
-        gameState = isWin ? 'CLEAR' : 'GAMEOVER';
-        document.getElementById('message-overlay').classList.remove('hidden');
-        document.getElementById('result-menu').classList.remove('hidden');
-        
-        document.getElementById('result-title').innerText = isWin ? '🎉 クリア！ 🎉' : '💀 ゲームオーバー 💀';
-        document.getElementById('result-title').className = isWin ? 'text-4xl font-bold mb-2 text-center text-yellow-400 drop-shadow-lg' : 'text-4xl font-bold mb-2 text-center text-red-500 drop-shadow-lg';
-        document.getElementById('result-desc').innerText = isWin ? `レベル ${currentLevel} の拠点を破壊した！` : '自分の拠点が破壊されてしまった...';
-    }
+function createParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({ x, y, vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100,
+      life: 0.5 + Math.random() * 0.5, maxLife: 1.0, color, size: Math.random() * 4 + 2 });
+  }
+}
 
-    function generateMathQuestion() {
-        const num1 = Math.floor(Math.random() * 9) + 1;
-        const num2 = Math.floor(Math.random() * 9) + 1;
-        currentCorrectAnswer = num1 * num2;
-        
-        document.getElementById('question-text').innerText = `${num1} × ${num2} = `;
-        
-        const answers = [currentCorrectAnswer];
-        while (answers.length < 3) {
-            let wrong;
-            if (Math.random() > 0.5) {
-                wrong = currentCorrectAnswer + (Math.floor(Math.random() * 5) + 1) * (Math.random() > 0.5 ? 1 : -1);
-            } else {
-                wrong = (Math.floor(Math.random() * 9) + 1) * (Math.floor(Math.random() * 9) + 1);
-            }
-            if (wrong > 0 && !answers.includes(wrong)) {
-                answers.push(wrong);
-            }
-        }
-        
-        answers.sort(() => Math.random() - 0.5);
-        currentCorrectIndex = answers.indexOf(currentCorrectAnswer);
-        
-        for (let i = 0; i < 3; i++) {
-            document.getElementById(`ans-btn-${i}`).innerText = answers[i];
-        }
-    }
+function updateUI() {
+  const pct = (energy / maxEnergy) * 100;
+  document.getElementById('energy-bar').style.width = pct + '%';
+  document.getElementById('energy-text').innerText = Math.floor(energy) + ' / ' + maxEnergy;
+  document.getElementById('summon-1').disabled = (energy < allyTypes['dog'].cost);
+  document.getElementById('summon-2').disabled = (energy < allyTypes['gorilla'].cost);
+  document.getElementById('summon-3').disabled = (energy < allyTypes['dragon'].cost);
+}
 
-    function checkAnswer(selectedIndex) {
-        if (gameState !== 'PLAYING' || isFrozen) return;
+function gameLoop(timestamp) {
+  let deltaTime = (timestamp - lastTime) / 1000;
+  if (deltaTime > 0.1) deltaTime = 0.1;
+  lastTime = timestamp;
+  update(deltaTime); draw();
+  animationId = requestAnimationFrame(gameLoop);
+}
 
-        const mathArea = document.getElementById('math-area');
-        const answersDiv = document.getElementById('answers');
-        
-        mathArea.classList.remove('flash-correct', 'flash-wrong');
-        void mathArea.offsetWidth; 
-
-        if (selectedIndex === currentCorrectIndex) {
-            mathArea.classList.add('flash-correct');
-            addEnergy(5);
-            generateMathQuestion(); 
-            createParticles(canvasWidth/2, canvasHeight/2, '#10b981', 15);
-        } else {
-            mathArea.classList.add('flash-wrong');
-            isFrozen = true;
-            answersDiv.classList.add('frozen');
-            
-            if(freezeTimer) clearTimeout(freezeTimer);
-            freezeTimer = setTimeout(() => {
-                isFrozen = false;
-                answersDiv.classList.remove('frozen');
-            }, 2000);
-        }
-    }
-    window.checkAnswer = checkAnswer;
-
-    function addEnergy(amount) {
-        energy = Math.min(energy + amount, maxEnergy);
-        updateUI();
-    }
-
-    function spawnAlly(typeKey) {
-        if (gameState !== 'PLAYING') return;
-        const type = allyTypes[typeKey];
-        if (energy >= type.cost) {
-            energy -= type.cost;
-            updateUI();
-            
-            const groundY = canvasHeight * 0.6 + (Math.random() * 40 - 20);
-            
-            entities.push({
-                isAlly: true, emoji: type.emoji,
-                x: bases.player.x - type.size/2 - 10, y: groundY,
-                hp: type.hp, maxHp: type.maxHp, atk: type.atk,
-                speed: type.speed * -1, range: type.range,
-                maxCd: type.cd, cdTimer: 0, size: type.size,
-                state: 'WALK', target: null
-            });
-            
-            createParticles(bases.player.x - 40, groundY, '#3b82f6', 10);
-        }
-    }
-    window.spawnAlly = spawnAlly;
-
-    function spawnEnemyLogic(deltaTime) {
-        enemySpawnTimer -= deltaTime;
-        if (enemySpawnTimer <= 0) {
-            const baseRates = [4.5, 3.5, 2.5, 2.0, 1.5];
-            let rate = baseRates[currentLevel - 1];
-            const timeScale = Math.floor(timeElapsed / 15) * 0.1;
-            rate = Math.max(0.8, rate - timeScale);
-            enemySpawnTimer = rate + (Math.random() * 0.4);
-
-            let typeId = 0;
-            const r = Math.random();
-            if (currentLevel === 2 && r > 0.7) typeId = 1;
-            if (currentLevel === 3) { if (r > 0.5) typeId = 1; if (r > 0.9) typeId = 2; }
-            if (currentLevel === 4) { if (r > 0.4) typeId = 1; if (r > 0.8) typeId = 2; }
-            if (currentLevel === 5) { if (r > 0.3) typeId = 1; if (r > 0.6) typeId = 2; }
-
-            const type = enemyTypes[typeId];
-            const statMult = 1 + (currentLevel - 1) * 0.1;
-            const groundY = canvasHeight * 0.6 + (Math.random() * 40 - 20);
-            
-            entities.push({
-                isAlly: false, emoji: type.emoji,
-                x: bases.enemy.x + bases.enemy.width + type.size/2 + 10, y: groundY,
-                hp: type.hp * statMult, maxHp: type.maxHp * statMult, atk: type.atk * statMult,
-                speed: type.speed * -1, range: type.range,
-                maxCd: type.cd, cdTimer: 0, size: type.size * (1 + (statMult - 1)*0.5),
-                state: 'WALK', target: null
-            });
-        }
-    }
-
-    function update(deltaTime) {
-        if (gameState !== 'PLAYING') return;
-        timeElapsed += deltaTime;
-
-        bases.player.x = canvasWidth - 100;
-        bases.player.y = canvasHeight * 0.6 - 50;
-        bases.enemy.x = 20;
-        bases.enemy.y = canvasHeight * 0.6 - 50;
-
-        spawnEnemyLogic(deltaTime);
-        entities.sort((a, b) => a.y - b.y);
-
-        entities.forEach(e => { e.state = 'WALK'; e.target = null; });
-
-        for (let i = 0; i < entities.length; i++) {
-            let e = entities[i];
-            if (e.hp <= 0) continue;
-
-            if (e.isAlly && e.x - e.range <= bases.enemy.x + bases.enemy.width) {
-                e.state = 'ATTACK'; e.target = bases.enemy;
-            } else if (!e.isAlly && e.x + e.range >= bases.player.x) {
-                e.state = 'ATTACK'; e.target = bases.player;
-            }
-
-            for (let j = 0; j < entities.length; j++) {
-                let other = entities[j];
-                if (i === j || other.hp <= 0 || e.isAlly === other.isAlly) continue;
-                if (Math.abs(e.y - other.y) > 40) continue;
-
-                const dist = Math.abs(e.x - other.x);
-                if (dist <= e.range) {
-                    e.state = 'ATTACK'; e.target = other; break;
-                }
-            }
-        }
-
-        for (let i = entities.length - 1; i >= 0; i--) {
-            let e = entities[i];
-            if (e.state === 'WALK') {
-                e.x += e.speed * deltaTime;
-            } else if (e.state === 'ATTACK' && e.target) {
-                e.cdTimer -= deltaTime;
-                if (e.cdTimer <= 0) {
-                    e.target.hp -= e.atk;
-                    e.cdTimer = e.maxCd;
-                    createParticles(e.target.x || e.target.x, e.target.y || (e.target.y + 50), e.isAlly ? '#ef4444' : '#3b82f6', 5);
-                    damageTexts.push({ x: e.target.x, y: e.target.y - 30, text: Math.floor(e.atk), life: 0.8, maxLife: 0.8 });
-
-                    if (e.target === bases.enemy && bases.enemy.hp <= 0) {
-                        endGame(true);
-                    } else if (e.target === bases.player && bases.player.hp <= 0) {
-                        endGame(false);
-                    }
-                }
-            }
-            if (e.hp <= 0) {
-                createParticles(e.x, e.y, '#ffffff', 10);
-                entities.splice(i, 1);
-            }
-        }
-
-        for (let i = particles.length - 1; i >= 0; i--) {
-            let p = particles[i];
-            p.x += p.vx * deltaTime; p.y += p.vy * deltaTime; p.life -= deltaTime;
-            if (p.life <= 0) particles.splice(i, 1);
-        }
-        for (let i = damageTexts.length - 1; i >= 0; i--) {
-            let d = damageTexts[i];
-            d.y -= 20 * deltaTime; d.life -= deltaTime;
-            if (d.life <= 0) damageTexts.splice(i, 1);
-        }
-    }
-
-    function draw() {
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-        ctx.fillStyle = '#87CEEB';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight * 0.6);
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(0, canvasHeight * 0.6, canvasWidth, canvasHeight * 0.4);
-        ctx.fillStyle = '#654321';
-        ctx.fillRect(0, canvasHeight * 0.7, canvasWidth, canvasHeight * 0.3);
-
-        function drawBase(base, emoji, color) {
-            const barW = 60;
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(base.x + base.width/2 - barW/2, base.y - 15, barW, 8);
-            ctx.fillStyle = '#22c55e';
-            const hpPct = Math.max(0, base.hp / base.maxHp);
-            ctx.fillRect(base.x + base.width/2 - barW/2, base.y - 15, barW * hpPct, 8);
-            
-            ctx.font = '60px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(emoji, base.x + base.width/2, base.y + base.height);
-        }
-
-        drawBase(bases.enemy, '🏰', 'red');
-        drawBase(bases.player, '🏯', 'blue');
-
-        entities.forEach(e => {
-            ctx.font = `${e.size}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            
-            let yOffset = 0;
-            if (e.state === 'WALK') {
-                yOffset = Math.sin(timeElapsed * 10) * 5;
-            } else if (e.state === 'ATTACK') {
-                const dir = e.isAlly ? -1 : 1;
-                const atkAnim = Math.sin(e.cdTimer * 10) * 5;
-                ctx.fillText(e.emoji, e.x + (dir * atkAnim), e.y);
-            }
-            
-            if(e.state !== 'ATTACK') {
-               ctx.fillText(e.emoji, e.x, e.y + yOffset);
-            }
-
-            const barW = e.size;
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(e.x - barW/2, e.y - e.size - 10, barW, 5);
-            ctx.fillStyle = '#22c55e';
-            const hpPct = Math.max(0, e.hp / e.maxHp);
-            ctx.fillRect(e.x - barW/2, e.y - e.size - 10, barW * hpPct, 5);
-        });
-
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life / p.maxLife;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.globalAlpha = 1.0;
-
-        damageTexts.forEach(d => {
-            ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
-            ctx.fillStyle = '#ff0000';
-            ctx.font = 'bold 20px Arial';
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 3;
-            ctx.strokeText(d.text, d.x, d.y);
-            ctx.fillText(d.text, d.x, d.y);
-        });
-        ctx.globalAlpha = 1.0;
-    }
-
-    function createParticles(x, y, color, count) {
-        for (let i = 0; i < count; i++) {
-            particles.push({
-                x: x, y: y,
-                vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100,
-                life: 0.5 + Math.random() * 0.5, maxLife: 1.0, color: color,
-                size: Math.random() * 4 + 2
-            });
-        }
-    }
-
-    function updateUI() {
-        const energyPct = (energy / maxEnergy) * 100;
-        document.getElementById('energy-bar').style.width = `${energyPct}%`;
-        document.getElementById('energy-text').innerText = `${Math.floor(energy)} / ${maxEnergy}`;
-
-        document.getElementById('summon-1').disabled = (energy < allyTypes['dog'].cost);
-        document.getElementById('summon-2').disabled = (energy < allyTypes['gorilla'].cost);
-        document.getElementById('summon-3').disabled = (energy < allyTypes['dragon'].cost);
-    }
-
-    function gameLoop(timestamp) {
-        let deltaTime = (timestamp - lastTime) / 1000;
-        if (deltaTime > 0.1) deltaTime = 0.1;
-        lastTime = timestamp;
-
-        update(deltaTime);
-        draw();
-
-        animationId = requestAnimationFrame(gameLoop);
-    }
-    
-    updateUI();
+updateUI();
 </script>
+</body>
+</html>
